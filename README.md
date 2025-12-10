@@ -46,17 +46,7 @@
 
 ## 📸 Screenshots & Demo
 
-_Add gameplay screenshots or demo video link here_
-
----
-
-## 📌 GitHub Topics
-
-```
-unity2d
-hypercasual
-final-year-project
-```
+https://github.com/USERNAME/REPO_NAME/assets/XXXXXXXXXXXX
 
 ---
 
