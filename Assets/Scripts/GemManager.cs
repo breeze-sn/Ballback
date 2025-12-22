@@ -1,22 +1,33 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using static UnityEditor.Timeline.TimelinePlaybackControls;
 
 public class GemManager : MonoBehaviour
 {
     public int gemCount;
     public Text gemText;
-    // Start is called before the first frame update
+
+    [Header("Audio")]
+    public AudioClip gemSound;
+    private AudioSource audioSource;
+
     void Start()
     {
-        
+        audioSource = GetComponent<AudioSource>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         gemText.text = gemCount.ToString();
+    }
+
+    // ✅ ADD THIS METHOD
+    public void AddGem(int amount)
+    {
+        gemCount += amount;
+
+        if (audioSource != null && gemSound != null)
+            audioSource.PlayOneShot(gemSound);
     }
 }

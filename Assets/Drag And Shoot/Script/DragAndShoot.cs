@@ -1,308 +1,240 @@
-using UnityEngine;
-using UnityEngine.EventSystems;
+﻿using UnityEngine;
 
 public class DragAndShoot : MonoBehaviour
 {
     [Header("Movement")]
-    public float maxPower;
-    [Tooltip("Set gravity to 0 if you want a top down ball game like billiardo.")]
-    public float gravity = 1;
-    [Tooltip("Slow the ball movement while aiming to make it easier to aim.")]
-    [Range(0f, 0.1f)] public float slowMotion;
+    public float maxPower = 10f;
+    public float gravity = 1f;
+    [Range(0f, 0.1f)] public float slowMotion = 0.02f;
 
-    [Tooltip("Allows you to aim and shot even when the ball is still moving.")]
     public bool shootWhileMoving = false;
-    [Tooltip("Drag forward to aim instead of reverse aiming.")]
     public bool forwardDraging = true;
-    [Tooltip("Show the draging line in the screen so you will not get confused where you aiming")]
     public bool showLineOnScreen = false;
-    [Tooltip("Allow you to click whenever in the screen to start aiming, turn it off if you only want to start aiming while clicking in the ball")]
     public bool freeAim = true;
 
+    [Header("Managers")]
     public CoinManager cm;
     public GemManager gm;
     public PotionManager ps;
+
+    [Header("Health")]
+    public int maxHealth = 100;
+    public int shootDamage = 5;
+    public int currentHealth;
+    public HealthBar healthBar;
 
     Transform direction;
     Rigidbody2D rb;
     LineRenderer line;
     LineRenderer screenLine;
 
-    // Vectors // 
-    Vector2 startPosition;
-    Vector2 targetPosition;
     Vector2 startMousePos;
     Vector2 currentMousePos;
 
     float shootPower;
     bool canShoot = true;
+    bool isAiming = false;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = gravity;
+
         line = GetComponent<LineRenderer>();
         direction = transform.GetChild(0);
         screenLine = direction.GetComponent<LineRenderer>();
+
+        currentHealth = maxHealth;
+
+        if (healthBar != null)
+            healthBar.SetMaxHealth(maxHealth);
+        else
+            Debug.LogError("HealthBar not assigned in Inspector!");
     }
 
     void Update()
     {
+        // Disable input if health is zero
+        if (currentHealth <= 0)
+            return;
 
         if (Input.GetMouseButtonDown(0))
         {
-            // if (EventSystem.current.currentSelectedGameObject) return;  //ENABLE THIS IF YOU DONT WANT TO IGNORE UI
             if (freeAim)
                 MouseClick();
             else
                 BallClick();
         }
+
         if (Input.GetMouseButton(0) && isAiming)
         {
-            // if (EventSystem.current.currentSelectedGameObject) return;  //ENABLE THIS IF YOU DONT WANT TO IGNORE UI
             MouseDrag();
 
-            if (shootWhileMoving) rb.velocity /= (1 + slowMotion);
-
+            if (shootWhileMoving)
+                rb.velocity /= (1 + slowMotion);
         }
 
         if (Input.GetMouseButtonUp(0) && isAiming)
         {
-            // if (EventSystem.current.currentSelectedGameObject) return;  //ENABLE THIS IF YOU DONT WANT TO IGNORE UI
             MouseRelease();
         }
 
-
-        if (shootWhileMoving)
-            return;
-
-        if (rb.velocity.magnitude < 0.7f)
+        if (!shootWhileMoving && rb.velocity.magnitude < 0.7f)
         {
-            rb.velocity = new Vector2(0, 0); //ENABLE THIS IF YOU WANT THE BALL TO STOP IF ITS MOVING SO SLOW
+            rb.velocity = Vector2.zero;
             canShoot = true;
         }
     }
 
-    private bool objectClicked()
-    {
+    // ---------------- INPUT ----------------
 
-        RaycastHit2D hit = Physics2D.CircleCast(Camera.main.ScreenToWorldPoint(Input.mousePosition), 0.2f, Vector2.zero);
-
-        if (hit.collider != null && hit.collider.gameObject == gameObject)
-        {
-            return true;
-        }
-        return false;
-    }
-
-
-    // MOUSE INPUTS
     void MouseClick()
     {
+        if (!canShoot && !shootWhileMoving) return;
 
         isAiming = true;
-
-        if (shootWhileMoving)
-        {
-            Vector2 dir = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            transform.right = dir * 1;
-
-            startMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        }
-        else
-        {
-            if (canShoot)
-            {
-                Vector2 dir = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                transform.right = dir * 1;
-
-                startMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            }
-        }
-
+        startMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        LookAtShootDirection();
     }
-
-    private bool isAiming = false;
 
     void BallClick()
     {
-        if (!objectClicked())
-            return;
+        if (!objectClicked()) return;
+        if (!canShoot && !shootWhileMoving) return;
 
         isAiming = true;
-
-        if (shootWhileMoving)
-        {
-            Vector2 dir = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            transform.right = dir * 1;
-
-            startMousePos = transform.position;
-        }
-        else
-        {
-            if (canShoot)
-            {
-                Vector2 dir = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                transform.right = dir * 1;
-
-                startMousePos = transform.position;
-            }
-        }
-
+        startMousePos = transform.position;
+        LookAtShootDirection();
     }
+
     void MouseDrag()
     {
-        if (!freeAim)
-            startMousePos = transform.position;
+        LookAtShootDirection();
+        DrawLine();
 
-        if (shootWhileMoving)
-        {
-            LookAtShootDirection();
-            DrawLine();
-
-            if (showLineOnScreen)
-                DrawScreenLine();
-
-            float distance = Vector2.Distance(currentMousePos, startMousePos);
-
-            if (distance > 1)
-            {
-                line.enabled = true;
-
-                if (showLineOnScreen)
-                    screenLine.enabled = true;
-            }
-        }
-        else
-        {
-            if (canShoot)
-            {
-                LookAtShootDirection();
-                DrawLine();
-
-                if (showLineOnScreen)
-                    DrawScreenLine();
-
-                float distance = Vector2.Distance(currentMousePos, startMousePos);
-
-                if (distance > 1)
-                {
-                    line.enabled = true;
-
-                    if (showLineOnScreen)
-                        screenLine.enabled = true;
-                }
-            }
-        }
-
+        if (showLineOnScreen)
+            DrawScreenLine();
     }
+
     void MouseRelease()
     {
-        if (shootWhileMoving /*&& !EventSystem.current.IsPointerOverGameObject()*/)
-        {
+        if (canShoot || shootWhileMoving)
             Shoot();
-            screenLine.enabled = false;
-            line.enabled = false;
-        }
-        else
-        {
-            if (canShoot /*&& !EventSystem.current.IsPointerOverGameObject()*/)
-            {
-                Shoot();
-                screenLine.enabled = false;
-                line.enabled = false;
-            }
-        }
 
         isAiming = false;
-
+        line.enabled = false;
+        screenLine.enabled = false;
     }
 
+    // ---------------- ACTIONS ----------------
 
-    // ACTIONS  
     void LookAtShootDirection()
     {
+        currentMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+
         Vector3 dir = startMousePos - currentMousePos;
+        transform.right = forwardDraging ? -dir : dir;
 
-        if (forwardDraging)
-        {
-            transform.right = dir * -1;
-        }
-        else
-        {
-            transform.right = dir;
-        }
+        float dis = Vector2.Distance(startMousePos, currentMousePos) * 4f;
+        shootPower = Mathf.Min(dis, maxPower);
 
-
-        float dis = Vector2.Distance(startMousePos, currentMousePos);
-        dis *= 4;
-
-
-        if (dis < maxPower)
-        {
-            direction.localPosition = new Vector2(dis / 6, 0);
-            shootPower = dis;
-        }
-        else
-        {
-            shootPower = maxPower;
-            direction.localPosition = new Vector2(maxPower / 6, 0);
-        }
-
+        direction.localPosition = new Vector2(shootPower / 6f, 0);
     }
-    public void Shoot()
+
+    void Shoot()
     {
         canShoot = false;
         rb.velocity = transform.right * shootPower;
+
+        TakeDamage(shootDamage);
     }
 
-
-    void DrawScreenLine()
+    void TakeDamage(int damage)
     {
-        screenLine.positionCount = 1;
-        screenLine.SetPosition(0, startMousePos);
+        currentHealth -= damage;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
 
+        if (healthBar != null)
+            healthBar.SetHealth(currentHealth);
 
-        screenLine.positionCount = 2;
-        screenLine.SetPosition(1, currentMousePos);
+        if (currentHealth <= 0)
+            DisableBall();
     }
+
+    void Heal(int amount)
+    {
+        currentHealth += amount;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
+        if (healthBar != null)
+            healthBar.SetHealth(currentHealth);
+
+        if (currentHealth > 0)
+        {
+            canShoot = true;
+            isAiming = false;
+        }
+    }
+
+    void DisableBall()
+    {
+        canShoot = false;
+        isAiming = false;
+
+        line.enabled = false;
+        screenLine.enabled = false;
+        // Rigidbody untouched → gravity continues
+    }
+
+    // ---------------- LINE RENDERERS ----------------
 
     void DrawLine()
     {
-
-        startPosition = transform.position;
-
-        line.positionCount = 1;
-        line.SetPosition(0, startPosition);
-
-
-        targetPosition = direction.transform.position;
-        currentMousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
+        line.enabled = true;
         line.positionCount = 2;
-        line.SetPosition(1, targetPosition);
+        line.SetPosition(0, transform.position);
+        line.SetPosition(1, direction.position);
     }
 
-    Vector3[] positions;
-
-    private void OnTriggerEnter2D(Collider2D other) 
+    void DrawScreenLine()
     {
-        if(other.gameObject.CompareTag("Coin"))
+        screenLine.enabled = true;
+        screenLine.positionCount = 2;
+        screenLine.SetPosition(0, startMousePos);
+        screenLine.SetPosition(1, currentMousePos);
+    }
+
+    // ---------------- COLLISIONS ----------------
+
+    bool objectClicked()
+    {
+        RaycastHit2D hit = Physics2D.CircleCast(
+            Camera.main.ScreenToWorldPoint(Input.mousePosition),
+            0.2f,
+            Vector2.zero
+        );
+
+        return hit.collider != null && hit.collider.gameObject == gameObject;
+    }
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Coin"))
         {
             Destroy(other.gameObject);
             cm.coinCount++;
         }
-        else if (other.gameObject.CompareTag("Gem"))
+        else if (other.CompareTag("Gem"))
         {
             Destroy(other.gameObject);
             gm.gemCount++;
         }
-        else if (other.gameObject.CompareTag("Potion"))
+        else if (other.CompareTag("Potion"))
         {
+            int healAmount = Mathf.RoundToInt(maxHealth * 0.2f);
+            Heal(healAmount);
+
             Destroy(other.gameObject);
         }
     }
-
 }
-
-

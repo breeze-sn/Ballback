@@ -3,7 +3,9 @@ guid: 1d1af2e5deb63a944bf438bc8547ef1a
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - gemText: {instanceID: 0}
+  - gemSound: {fileID: 8300000, guid: cc0898c5b0cd5114e845fc89b97e0d03, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
